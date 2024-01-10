@@ -1,0 +1,15 @@
+{  
+  "name": "stylized-water",
+  "displayName": "Stylized Water",
+  "description": "",
+  "version": "1.6.0",
+  "unity": "2021.3",
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Examples",
+      "description": "",
+      "path": "Samples~/Examples"
+    }
+  ]
+}
