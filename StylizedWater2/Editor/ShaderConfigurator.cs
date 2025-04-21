@@ -639,7 +639,10 @@ namespace StylizedWater2
                 //Check if the displacement pre-pass is enabled anywhere
                 for (int i = 0; i < GraphicsSettings.allConfiguredRenderPipelines.Length; i++)
                 {
-                    UniversalRenderPipelineAsset pipeline = (UniversalRenderPipelineAsset)GraphicsSettings.allConfiguredRenderPipelines[i];
+                    UniversalRenderPipelineAsset pipeline = GraphicsSettings.allConfiguredRenderPipelines[i] as UniversalRenderPipelineAsset;
+                    if (pipeline == null) continue;
+                    
+                    Debug.Log($"Pipeline {i}: {pipeline.name} {pipeline.GetType()}");
 
                     ScriptableRendererData[] renderers = PipelineUtilities.GetRenderDataList(pipeline);
 
