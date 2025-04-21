@@ -20,7 +20,7 @@ using Object = UnityEngine.Object;
 
 namespace StylizedWater2
 {
-    [ScriptedImporterAttribute(AssetInfo.SHADER_GENERATOR_VERSION_MAJOR + AssetInfo.SHADER_GENERATOR_MINOR + AssetInfo.SHADER_GENERATOR_PATCH, TARGET_FILE_EXTENSION, 2)]
+    [ScriptedImporterAttribute(AssetInfo.SHADER_GENERATOR_VERSION_MAJOR + AssetInfo.SHADER_GENERATOR_MINOR + AssetInfo.SHADER_GENERATOR_PATCH, TARGET_FILE_EXTENSION, 0)]
     public class WaterShaderImporter : ScriptedImporter
     {
         private const string TARGET_FILE_EXTENSION = "watershader";
@@ -89,6 +89,14 @@ namespace StylizedWater2
             dependencies.Clear();
             
             string templateContents = ShaderConfigurator.TemplateParser.CreateShaderCode(context.assetPath, ref lines, this, false);
+
+            bool asyncCompilation = ShaderUtil.allowAsyncCompilation;
+
+            if (settings.type == WaterShaderSettings.ShaderType.WaterSurface)
+            {
+                //Force async compilation, if this is disabled the editor may crash because compilation take long enough to stall the GPU (DX3D11 Swapchain error)
+                ShaderUtil.allowAsyncCompilation = true;
+            }
             
             Shader shaderAsset = ShaderUtil.CreateShaderAsset(templateContents, true);
             ShaderUtil.RegisterShader(shaderAsset);
@@ -126,6 +134,8 @@ namespace StylizedWater2
             {
                 context.DependsOnSourceAsset(dependency);
             }
+
+            ShaderUtil.allowAsyncCompilation = asyncCompilation;
             
             #if SWS_DEV
             sw.Stop();

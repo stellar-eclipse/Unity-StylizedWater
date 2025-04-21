@@ -16,11 +16,12 @@ namespace StylizedWater2.UnderwaterRendering
         protected UnderwaterResources resources;
         protected UnderwaterRenderFeature.Settings settings;
         protected UnderwaterRenderFeature renderFeature;
-        
-        protected RTHandle cameraColorSource;
-        protected RenderTarget cameraColorTarget;
-        
-        protected readonly int sourceTexID = Shader.PropertyToID("_SourceTex");
+
+        private RTHandle cameraColorSource;
+        private RenderTarget cameraColorTarget;
+        private RenderTarget cameraDepthTarget;
+
+        private readonly int sourceTexID = Shader.PropertyToID("_SourceTex");
 
         //In the interest of consistency, some one at Unity thinks its a good idea to change parameter names
         #if UNITY_2022_2_OR_NEWER
@@ -28,8 +29,8 @@ namespace StylizedWater2.UnderwaterRendering
         #else
         private const string BlitInputTexName = "_SourceTex";
         #endif
-        
-        protected readonly int blitInputID = Shader.PropertyToID(BlitInputTexName);
+
+        private readonly int blitInputID = Shader.PropertyToID(BlitInputTexName);
         
         protected Material Material;
         private static Material _BlitMaterial;
@@ -59,20 +60,35 @@ namespace StylizedWater2.UnderwaterRendering
 
             if(shader) Material = CoreUtils.CreateEngineMaterial(shader);
         }
+        
+        #if UNITY_6000_0_OR_NEWER //Silence warning spam
+        public override void RecordRenderGraph(UnityEngine.Rendering.RenderGraphModule.RenderGraph renderGraph, ContextContainer frameData) { }
+        #endif
 
+        #if UNITY_6000_0_OR_NEWER
+        #pragma warning disable CS0672
+        #pragma warning disable CS0618
+        #endif
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
-            if (RenderPass.RTHandleNeedsReAlloc(cameraColorSource, cameraTextureDescriptor, "_SourceTex"))
+            //At this point, the target is unbound. At least for the first frame
+            //ConfigureTarget(cameraColorTarget, cameraDepthTarget);
+        }
+
+        protected void AllocateColorCopy(RenderTextureDescriptor cameraTextureDescriptor)
+        {
+            if (RTHandleNeedsReAlloc(cameraColorSource, cameraTextureDescriptor, "_SourceTex"))
             {
                 //Note: function does a null check, needed for the first allocation
                 if(cameraColorSource != null) RTHandles.Release(cameraColorSource);
-                cameraColorSource = RTHandles.Alloc(cameraTextureDescriptor.width, cameraTextureDescriptor.height, cameraTextureDescriptor.volumeDepth, DepthBits.None, cameraTextureDescriptor.graphicsFormat, FilterMode.Point, TextureWrapMode.Clamp, cameraTextureDescriptor.dimension, name: "_SourceTex");
+                cameraColorSource = RTHandles.Alloc(cameraTextureDescriptor.width, cameraTextureDescriptor.height, cameraTextureDescriptor.volumeDepth, 
+                    DepthBits.None, cameraTextureDescriptor.graphicsFormat, FilterMode.Point, TextureWrapMode.Clamp, cameraTextureDescriptor.dimension, 
+                    cameraTextureDescriptor.enableRandomWrite, useMipMap:false, msaaSamples:(MSAASamples)cameraTextureDescriptor.msaaSamples, useDynamicScale:cameraTextureDescriptor.useDynamicScale
+                    #if UNITY_2022_3_OR_NEWER
+                    , vrUsage:cameraTextureDescriptor.vrUsage
+                    #endif
+                    );
             }
-
-            cmd.SetGlobalTexture(sourceTexID, cameraColorSource);
-            
-            //At this point, the target is unbound. At least for the first frame
-            //ConfigureTarget(cameraColorTarget);
         }
 
         public static bool RTHandleNeedsReAlloc(RTHandle handle, in RenderTextureDescriptor descriptor, in string name)
@@ -125,18 +141,21 @@ namespace StylizedWater2.UnderwaterRendering
             #if !UNITY_2020_2_OR_NEWER //URP 10+
             //otherwise fetched in Execute function, no longer allowed from a ScriptableRenderFeature setup function (target may be not be created yet, or was disposed)
             this.cameraColorTarget = renderer.cameraColorTarget;
+            this.cameraDepthTarget = renderer.cameraDepthTarget;
             #endif
         }
 
-        protected void GetColorTarget(ref RenderingData renderingData)
+        private void GetColorTarget(ref RenderingData renderingData)
         {
             #if UNITY_2020_2_OR_NEWER //URP 10+
             //Color target can now only be fetched inside a ScriptableRenderPass
             
             #if UNITY_2022_1_OR_NEWER
             this.cameraColorTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
+            this.cameraDepthTarget = renderingData.cameraData.renderer.cameraDepthTargetHandle;
             #else
             this.cameraColorTarget = renderingData.cameraData.renderer.cameraColorTarget;
+            this.cameraDepthTarget = renderingData.cameraData.renderer.cameraDepthTarget;
             #endif
             #endif
         }
@@ -145,34 +164,40 @@ namespace StylizedWater2.UnderwaterRendering
         private static readonly int _BlitScaleBias = Shader.PropertyToID("_BlitScaleBias");
         private static readonly Vector4 ScaleBias = new Vector4(1, 1, 0, 0);
 
-        protected void BlitToCamera(CommandBuffer cmd, ref RenderingData renderingData)
+        protected void BlitToCamera(CommandBuffer cmd, ref RenderingData renderingData, bool copyColor)
         {
             //Required for vertex shader
             cmd.SetGlobalVector(_BlitScaleBiasRt, ScaleBias);
             cmd.SetGlobalVector(_BlitScaleBias, ScaleBias);
- 
-            //Copy camera color source
-            //Seemingly always needed when rendering before transparent materials, otherwise breaks the depth buffer
-            //+ Always needed for VR. Swap buffer fails to work there.
-            using (new ProfilingScope(cmd, m_CopyProfilingSampler))
+
+            RenderTarget source = copyColor ? cameraColorSource : cameraDepthTarget;
+            
+            if (copyColor)
             {
-                //Color copy
-                cmd.SetGlobalTexture(blitInputID, cameraColorTarget);
-                cmd.SetRenderTarget(cameraColorSource, 0, CubemapFace.Unknown, -1);
-                
-                if (xrRendering)
+                //Copy camera color source
+                //Seemingly always needed when rendering before transparent materials, otherwise breaks the depth buffer
+                //+ Always needed for VR. Swap buffer fails to work there.
+                using (new ProfilingScope(cmd, m_CopyProfilingSampler))
                 {
-                    cmd.DrawProcedural(Matrix4x4.identity, BlitMaterial, 0, MeshTopology.Quads, 4, 1, null);
-                }
-                else
-                {
-                    Blit(cmd, cameraColorTarget, cameraColorSource, BlitMaterial, 0);
+                    //Color copy
+                    cmd.SetGlobalTexture(blitInputID, cameraColorTarget);
+                    cmd.SetRenderTarget(cameraColorSource, cameraDepthTarget, 0, CubemapFace.Unknown, -1);
+
+                    if (xrRendering)
+                    {
+                        cmd.DrawProcedural(Matrix4x4.identity, BlitMaterial, 0, MeshTopology.Quads, 4, 1, null);
+                    }
+                    else
+                    {
+                        Blit(cmd, cameraColorTarget, cameraColorSource, BlitMaterial, 0);
+                    }
+                    
+                    cmd.SetGlobalTexture(sourceTexID, cameraColorSource);
                 }
             }
 
             //Blit to camera color target
-            cmd.SetGlobalTexture(sourceTexID, cameraColorSource);
-            cmd.SetRenderTarget(cameraColorTarget, 0, CubemapFace.Unknown, -1);
+            cmd.SetRenderTarget(cameraColorTarget, cameraDepthTarget, 0, CubemapFace.Unknown, -1);
             
             if (xrRendering)
             {
@@ -180,7 +205,12 @@ namespace StylizedWater2.UnderwaterRendering
             }
             else
             {
-                Blit(cmd, cameraColorSource, cameraColorTarget, Material, 0);
+                #if UNITY_2022_3_OR_NEWER
+                //This API respects the current depth/stencil buffer!
+                Blitter.BlitTexture(cmd, source, ScaleBias, Material, 0);
+                #else
+                Blit(cmd, source, cameraColorTarget, Material, 0);
+                #endif
             }
         }
         

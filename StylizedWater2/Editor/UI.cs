@@ -9,6 +9,10 @@ using UnityEditor;
 using UnityEditor.AnimatedValues;
 using UnityEditor.Rendering;
 using UnityEngine;
+using UnityEngine.Rendering;
+#if URP
+using UnityEngine.Rendering.Universal;
+#endif
 
 namespace StylizedWater2
 {
@@ -367,6 +371,34 @@ namespace StylizedWater2
             
             EditorGUILayout.Space(backgroundRect.height * 0.5f);
         }
+
+        public static void DrawRenderGraphError()
+        {
+            #if UNITY_6000_0_OR_NEWER && URP
+            if (GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode == false)
+            {
+                EditorGUILayout.HelpBox("Render Graph is not compatible." +
+                                        "\n\nBackwards compatibility mode must be enabled.", MessageType.Error);
+                
+                GUILayout.Space(-32);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button(new GUIContent("Enable", EditorGUIUtility.IconContent("d_tab_next").image), GUILayout.Width(60)))
+                    {
+                        GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode = true;
+
+                        EditorUtility.DisplayDialog($"{AssetInfo.ASSET_NAME} v{AssetInfo.INSTALLED_VERSION}", 
+                            "Please note that this fallback option will be removed in a future Unity version, this version of Stylized Water will no longer be completely functional then." +
+                            "\n\n" +
+                            "A license upgrade for Unity 6+ support is available through Stylized Water 3, please check the documentation for current information.", "OK");
+                    }
+                    GUILayout.Space(8);
+                }
+                GUILayout.Space(11);
+            }
+            #endif
+        }
     
         public static void DrawFooter()
         {
@@ -384,6 +416,19 @@ namespace StylizedWater2
             {
                 Application.OpenURL("http://staggart.xyz");
             }
+        }
+
+        public static void Unity6Message()
+        {
+            #if UNITY_6000_0_OR_NEWER
+            UI.DrawNotification(true, "Unity 6 or newer is not supported. You can continue to use it until breaking changes occur."+
+            "\n\nStylized Water 3 is available as an upgrade for Unity 6.", "Asset store", () =>
+            {
+                AssetInfo.OpenAssetStore("https://assetstore.unity.com/packages/slug/287769");
+            }, MessageType.Warning);
+            
+            UI.DrawRenderGraphError();
+            #endif
         }
         
         public static class Material
@@ -844,11 +889,12 @@ namespace StylizedWater2
                             wordWrap = true,
                             padding = new RectOffset()
                             {
-                                left = 14,
-                                right = 14,
-                                top = 8,
-                                bottom = 8
-                            }
+                                left = 7,
+                                right = 0,
+                                top = 5,
+                                bottom = 5
+                            },
+                            imagePosition = ImagePosition.ImageLeft
                         };
                     }
 
@@ -863,7 +909,7 @@ namespace StylizedWater2
                 {
                     if (_AssetStoreBtnContent == null)
                     {
-                        _AssetStoreBtnContent = new GUIContent("  View on Asset Store ", EditorGUIUtility.IconContent("Asset Store").image, "Open web page.\n\nURL may contain an affiliate ID to fund the purchase of new assets and investigate/develop integrations for them.");
+                        _AssetStoreBtnContent = new GUIContent("  View on Asset Store ", EditorGUIUtility.IconContent("Asset Store").image, "Open web page.\n\nURL may contain an affiliate ID, this commission helps to fund the purchase of new assets in order to investigate/develop integrations for them.");
                     }
 
                     return _AssetStoreBtnContent;

@@ -1,7 +1,13 @@
-﻿using System;
+﻿// Stylized Water 2
+// Staggart Creations (http://staggart.xyz)
+// Copyright protected under Unity Asset Store EULA
+// Copying or referencing source code for the production of new asset store content is strictly prohibited.
+
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+
 #if URP
 using UnityEngine.Rendering.Universal;
 #endif
@@ -30,7 +36,9 @@ namespace StylizedWater2
         [Tooltip("When disabled, the skybox reflection comes from a Reflection Probe. This has the benefit of being omni-directional rather than flat/planar. Enabled this to render the skybox into the planar reflection anyway." +
                  "\n\nNote that enabling this will override Screen Space Reflections completely!")]
         public bool includeSkybox;
-        [Tooltip("Render Unity's default fog in the reflection. Note that this doesn't strictly work correctly on large triangles, as it is incompatible with oblique camera projections.")]
+        [Tooltip("Render Unity's default scene fog in the reflection. Note that this doesn't strictly work correctly on large triangles, as it is incompatible with oblique camera projections." +
+                 "\n\n" +
+                 "This does not include to post-processing fog effects!")]
         public bool enableFog;
 
         //Quality
@@ -152,6 +160,7 @@ namespace StylizedWater2
                 if (kvp.Value)
                 {
                     RenderTexture.ReleaseTemporary(kvp.Value.targetTexture);
+                    
                     DestroyImmediate(kvp.Value.gameObject);
                 }
             }
@@ -240,7 +249,7 @@ namespace StylizedWater2
             UnityEngine.Profiling.Profiler.BeginSample("Planar Water Reflections", camera);
 
             //Render scale changed
-            if (Math.Abs(renderScale - m_renderScale) > 0.02f)
+            if (Math.Abs(renderScale - m_renderScale) > 0.001f)
             {
                 RenderTexture.ReleaseTemporary(m_reflectionCamera.targetTexture);
                 CreateRenderTexture(m_reflectionCamera, camera);
@@ -252,42 +261,64 @@ namespace StylizedWater2
             
             UpdateCameraProperties(camera, m_reflectionCamera);
             UpdatePerspective(camera, m_reflectionCamera);
-
+            
             bool fogEnabled = RenderSettings.fog && !enableFog;
             //Fog is based on clip-space z-distance and doesn't work with oblique projections
-            if (fogEnabled) RenderSettings.fog = false;
+            if (fogEnabled) SetFogState(false);
             int maxLODLevel = QualitySettings.maximumLODLevel;
             QualitySettings.maximumLODLevel = maximumLODLevel;
             GL.invertCulling = true;
 
-#pragma warning disable 0618
-#if UNITY_2023_1_OR_NEWER
-            /*
-            requestData = new UniversalRenderPipeline.SingleCameraRequest();
-            requestData.destination = reflectionCamera.targetTexture;
-            requestData.slice = -1;
+            RenderReflection(context, m_reflectionCamera);
 
-            //Throws the 'Recursive rendering is not supported in SRP (are you calling Camera.Render from within a render pipeline?).' error.
-            if (RenderPipeline.SupportsRenderRequest(m_reflectionCamera, requestData))
-            {
-                RenderPipeline.SubmitRenderRequest(m_reflectionCamera, requestData);
-            }
-            */
-            
-            //Instead, Unity will whine about using an obsolete API.
-            UniversalRenderPipeline.RenderSingleCamera(context, m_reflectionCamera);
-            
-            //So now what?
-#else
-            UniversalRenderPipeline.RenderSingleCamera(context, m_reflectionCamera);
-#endif
-#pragma warning restore 0618
-
-            if (fogEnabled) RenderSettings.fog = true;
+            if (fogEnabled) SetFogState(true);
             QualitySettings.maximumLODLevel = maxLODLevel;
             GL.invertCulling = false;
 
             UnityEngine.Profiling.Profiler.EndSample();
+        }
+
+        private void RenderReflection(ScriptableRenderContext context, Camera target)
+        {
+            /* Uncomment to render NR's vegetation in the reflection
+            // Register the reflection camera for Nature Renderer
+            var cameraId = VisualDesignCafe.Rendering.Instancing.RendererPool.RegisterCamera(target);
+
+            // Render the instanced objects (details and trees)
+            VisualDesignCafe.Rendering.Instancing.RendererPool.GetCamera(cameraId).Render();
+            */
+            
+#pragma warning disable 0618
+#if UNITY_2023_1_OR_NEWER
+            /*
+            requestData = new UniversalRenderPipeline.SingleCameraRequest();
+            requestData.destination = target.targetTexture;
+            requestData.slice = -1;
+
+            //Throws the 'Recursive rendering is not supported in SRP (are you calling Camera.Render from within a render pipeline?).' error.
+            if (RenderPipeline.SupportsRenderRequest(target, requestData))
+            {
+                RenderPipeline.SubmitRenderRequest(target, requestData);
+            }
+            */
+            
+            //Instead, Unity will whine about using an obsolete API.
+            UniversalRenderPipeline.RenderSingleCamera(context, target);
+            
+            //So then what?
+#else
+            UniversalRenderPipeline.RenderSingleCamera(context, target);
+#endif
+#pragma warning restore 0618
+        }
+
+        private void SetFogState(bool value)
+        {
+            #if UNITY_EDITOR
+            UnityEditor.Unsupported.SetRenderSettingsUseFogNoDirty(value);
+            #else
+            RenderSettings.fog = value;
+            #endif
         }
 
         private float GetRenderScale()
@@ -398,6 +429,9 @@ namespace StylizedWater2
             newCamera.clearFlags = includeSkybox ? CameraClearFlags.Skybox : CameraClearFlags.Depth;
             //Required to maintain the alpha channel for the scene view
             newCamera.backgroundColor = Color.clear;
+            
+            //Occlusion culling has to be disabled, otherwise objects culled by the main camera will be culled for the reflection camera
+            //Setting the culling matrix for the camera doesn't appear to have any effect
             newCamera.useOcclusionCulling = false;
 
             //Component required for the UniversalRenderPipeline.RenderSingleCamera call
@@ -405,7 +439,6 @@ namespace StylizedWater2
             data.requiresDepthTexture = false;
             data.requiresColorTexture = false;
             data.renderShadows = renderShadows;
-
             rendererIndex = PipelineUtilities.ValidateRenderer(rendererIndex);
             data.SetRenderer(rendererIndex);
 
@@ -427,8 +460,10 @@ namespace StylizedWater2
                 colorFormat);
 
             rtDsc.depthBufferBits = 16;
+            //rtDsc.msaaSamples = UniversalRenderPipeline.asset.msaaSampleCount; //Waste of resources, water distortion makes it virtually unnoticeable.
             
             targetCamera.targetTexture = RenderTexture.GetTemporary(rtDsc);
+            targetCamera.targetTexture.filterMode = scale < 1f ? FilterMode.Bilinear : FilterMode.Point;
             targetCamera.targetTexture.name = $"{source.name}_Reflection {rtDsc.width}x{rtDsc.height}";
         }
         
@@ -468,7 +503,6 @@ namespace StylizedWater2
             reflectionCam.fieldOfView = source.fieldOfView;
             reflectionCam.orthographic = source.orthographic;
             reflectionCam.orthographicSize = source.orthographicSize;
-            reflectionCam.useOcclusionCulling = source.useOcclusionCulling;
         }
 
         private void UpdatePerspective(Camera source, Camera reflectionCam)
@@ -521,6 +555,9 @@ namespace StylizedWater2
 
             reflectionCam.projectionMatrix = projectionMatrix;
             reflectionCam.worldToCameraMatrix = viewMatrix;
+
+            //Unfortunately has to effect, camera appears ti use the culling matrix from the source camera anyway
+            //reflectionCam.cullingMatrix = projectionMatrix * viewMatrix;
         }
 
         // Calculates reflection matrix around the given plane

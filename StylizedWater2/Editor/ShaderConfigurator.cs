@@ -279,6 +279,12 @@ namespace StylizedWater2
                         continue;
                     }
 
+                    if (Matches("%fog_integration%"))
+                    {
+                        AddLine($"//Fog integration: {fogIntegration.asset}");
+                        continue;
+                    }
+                    
                     if (Matches("%shader_name%"))
                     {
                         AddLine($"Shader \"{shaderName}{suffix}\"");
@@ -508,7 +514,7 @@ namespace StylizedWater2
                                 }
                                 else
                                 {
-                                    line = $"#include \"{includePath}\"";
+                                    line = $"#include_with_pragmas \"{includePath}\"";
 
                                     AddLine(line);
                                     continue;
@@ -528,7 +534,11 @@ namespace StylizedWater2
 
                         string includePath = RelativeToAbsoluteIncludePath(templatePath, relativePath);
 
+                        #if UNITY_2023_2_OR_NEWER
+                        line = $"#include_with_pragmas \"{includePath}\"";
+                        #else
                         line = $"#include \"{includePath}\"";
+                        #endif
 
                         importer.RegisterDependency(includePath);
 
@@ -550,20 +560,36 @@ namespace StylizedWater2
                 return String.Join(Environment.NewLine, lines);
             }
         }
-
+        
         public static ShaderMessage[] GetErrorMessages(Shader shader)
+        {
+            ShaderMessage[] messages = GetWarningsAndErrors(shader);
+
+            if (messages != null)
+            {
+                //Filter for errors
+                messages = messages.Where(x => x.severity == ShaderCompilerMessageSeverity.Error).ToArray();
+            }
+            
+            return messages;
+        }
+        
+        public static ShaderMessage[] GetWarningsAndErrors(Shader shader)
         {
             ShaderMessage[] messages = null;
 
-            int n = ShaderUtil.GetShaderMessageCount(shader);
+            if (shader)
+            {
+                int n = ShaderUtil.GetShaderMessageCount(shader);
 
-            if (n < 1) return messages;
-            
-            messages = ShaderUtil.GetShaderMessages(shader);
-            
-            //Filter for errors
-            messages = messages.Where(x => x.severity == ShaderCompilerMessageSeverity.Error).ToArray();
+                if (n < 1) return messages;
 
+                messages = ShaderUtil.GetShaderMessages(shader);
+
+                //Filter for errors
+                //messages = messages.Where(x => x.severity == ShaderCompilerMessageSeverity.Error).ToArray();
+            }
+            
             return messages;
         }
 

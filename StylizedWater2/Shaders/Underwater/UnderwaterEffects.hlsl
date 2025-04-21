@@ -124,11 +124,16 @@ float _DistortionSpeed;
 
 #define HALF_FREQUENCY 0.5
 #define STRENGTH_SCALAR 4.0
-
+	
+float GetDistortionTime()
+{
+	return (_CustomTime > 0 ? _CustomTime : _TimeParameters.x) * _DistortionSpeed;
+}
+	
 float MapWorldSpaceDistortionOffsets(float3 wPos)
 {
 	wPos *= _DistortionFreq;
-	float distortionOffset = _CustomTime > 0 ? _CustomTime : _TimeParameters.x * _DistortionSpeed;
+	float distortionOffset = GetDistortionTime();
 	
 	float x1 =  SAMPLE_TEXTURE2D(_DistortionNoise, sampler_DistortionNoise, float2(wPos.y + distortionOffset, wPos.z + distortionOffset)).r;
 	#ifdef HQ_WORLDSPACE_DISTORTION
@@ -157,7 +162,7 @@ half DistortUV(float2 uv, inout float2 distortedUV)
 	
 #if _SCREENSPACE_DISTORTION
 	float2 distortionFreq = uv * _DistortionFreq;
-	float distortionOffset = _CustomTime > 0 ? _CustomTime : _TimeParameters.x * _DistortionSpeed;
+	float distortionOffset = GetDistortionTime();
 				
 	float n1 = SAMPLE_TEXTURE2D(_DistortionNoise, sampler_DistortionNoise, float2(distortionFreq.x + distortionOffset, distortionFreq.y + distortionOffset)).r ;
 	float n2 = SAMPLE_TEXTURE2D(_DistortionNoise, sampler_DistortionNoise, float2(distortionFreq.x - (distortionOffset * HALF_FREQUENCY), distortionFreq.y)).r;

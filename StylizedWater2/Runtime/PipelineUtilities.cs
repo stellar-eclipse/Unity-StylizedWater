@@ -258,18 +258,45 @@ namespace StylizedWater2
             }
         }
 
+        public static ScriptableRendererFeature[] GetDefaultRenderFeatures()
+        {
+            ScriptableRendererData renderer = GetDefaultRenderer();
+
+            return renderer.rendererFeatures.ToArray();
+        }
+
         /// <summary>
-        /// Retrieves the given render feature from the default renderer
+        /// Retrieves the given render feature from the given renderer
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static ScriptableRendererFeature GetRenderFeature<T>(ScriptableRendererData renderer = null)
+        public static ScriptableRendererFeature GetRenderFeature<T>(ScriptableRendererData renderer)
         {
             if(renderer == null) renderer = GetDefaultRenderer();
             
             foreach (ScriptableRendererFeature feature in renderer.rendererFeatures)
             {
                 if (feature && feature.GetType() == typeof(T)) return feature;
+            }
+
+            return null;
+        }
+        
+        /// <summary>
+        /// Retrieves the given render feature from the first renderer that contains it
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static ScriptableRendererFeature GetRenderFeature<T>()
+        {
+            ScriptableRendererData[] rendererDataList = GetRenderDataList(UniversalRenderPipeline.asset);
+
+            for (int i = 0; i < rendererDataList.Length; i++)
+            {
+                foreach (ScriptableRendererFeature feature in rendererDataList[i].rendererFeatures)
+                {
+                    if (feature && feature.GetType() == typeof(T)) return feature;
+                }
             }
 
             return null;
@@ -642,6 +669,15 @@ namespace StylizedWater2
             return XRSRPSettings.enabled;
             #else
             return XRGraphics.enabled;
+            #endif
+        }
+
+        public static bool RenderGraphEnabled()
+        {
+            #if UNITY_6000_0_OR_NEWER
+            return UnityEngine.Rendering.GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode == false;
+            #else
+            return false;
             #endif
         }
 #endif

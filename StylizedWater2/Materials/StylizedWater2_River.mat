@@ -25,6 +25,7 @@ Material:
   - ADVANCED_LIGHTING
   - _DEPTHEXP_ON
   - _DEPTH_TEX
+  - _RECEIVEDYNAMICEFFECTS_ON
   - _VERTEXCOLORDEPTH_ON
   - _VERTEXCOLORFOAM_ON
   - _VERTEXCOLORWAVEFLATTENING_ON
@@ -117,6 +118,7 @@ Material:
     - _Blend: 0
     - _BumpScale: 1
     - _CausticsBrightness: 5
+    - _CausticsChromance: 1
     - _CausticsDistortion: 0.418
     - _CausticsOn: 1
     - _CausticsSpeed: 0.1
@@ -141,7 +143,7 @@ Material:
     - _FoamDistortion: 2.03
     - _FoamOn: 1
     - _FoamSize: 0.045
-    - _FoamSpeed: 0
+    - _FoamSpeed: 0.04
     - _FoamSpeedDynamic: 0.1
     - _FoamSubSpeed: 1
     - _FoamSubSpeedDynamic: -0.1
@@ -157,6 +159,7 @@ Material:
     - _GlossyReflections: 0
     - _HorizonDistance: 7.7
     - _IntersectionClipping: 0.166
+    - _IntersectionDistortion: 0.2
     - _IntersectionFalloff: 0.355
     - _IntersectionLength: 1.48
     - _IntersectionRippleDist: 64
@@ -182,6 +185,7 @@ Material:
     - _PointSpotLightReflectionStrength: 10
     - _QueueOffset: 0
     - _RAMMode: 1
+    - _ReceiveDynamicEffects: 1
     - _ReceiveShadows: 1
     - _ReflectionBlur: 0.013
     - _ReflectionDistortion: 0.075

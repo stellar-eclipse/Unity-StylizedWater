@@ -32,6 +32,8 @@
 			#pragma multi_compile_local _ _WAVES
 
 			#include_library "../Libraries/URP.hlsl"
+            //#pragma multi_compile_vertex _ WATER_DISPLACEMENT_PASS
+			//#include_library "../Libraries/Displacement.hlsl" //v1.6.0+
 
 			//Multi-compile variants for installed extensions
 			%multi_compile dynamic effects%
@@ -63,7 +65,7 @@
 
 				float gradient = saturate(min(uv.y, 1-uv.y) * 2.0);
 
-				float3 color = lerp(_WaterDeepColor.rgba, _WaterShallowColor.rgba, gradient * 0.25);
+				float3 color = lerp(_WaterDeepColor.rgb, _WaterShallowColor.rgb, gradient * 0.25);
                 float alpha = lerp(_WaterDeepColor.a, _WaterShallowColor.a, gradient * 0.25);
 
 				//View direction can be planar, since the mesh is flat on the frustrum anyway

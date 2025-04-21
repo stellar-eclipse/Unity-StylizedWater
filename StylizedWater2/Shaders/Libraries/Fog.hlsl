@@ -15,34 +15,38 @@ float _WaterFogDisabled;
 #endif
 
 #ifdef AtmosphericHeightFog
-bool AHF_Enabled;
+//For versions older than 3.2.0, uncomment this
+//bool AHF_Enabled;
 #endif
 
 //Fragment stage. Note: Screen position passed here is not normalized (divided by w-component)
 void ApplyFog(inout float3 color, float fogFactor, float4 screenPos, float3 positionWS, float vFace) 
 {
 	float3 foggedColor = color;
+
+	float2 normalizedUV = screenPos.xy / screenPos.w;
 	
 #ifdef UnityFog
 	foggedColor = MixFog(color.rgb, fogFactor);
 #endif
 
 #ifdef Colorful
-	if(_DensityParams.x > 0) foggedColor.rgb = ApplyFog(color.rgb, fogFactor, positionWS, screenPos.xy / screenPos.w);
+	if(_DensityParams.x > 0) foggedColor.rgb = ApplyFog(color.rgb, fogFactor, positionWS, normalizedUV);
 #endif
 	
 #ifdef Enviro
 	//Distance/height fog enabled?
 	if (_EnviroParams.y > 0 || _EnviroParams.z > 0)
 	{
-		foggedColor.rgb = TransparentFog(float4(color.rgb, 1.0), positionWS, screenPos.xy / screenPos.w, fogFactor).rgb;
+		foggedColor.rgb = TransparentFog(float4(color.rgb, 1.0), positionWS, normalizedUV, fogFactor).rgb;
 	}
 #endif
 
 #ifdef Enviro3
-	if(_EnviroFogParameters.x > 0)
+	if(any(_EnviroFogParameters) > 0) //Fog density 1
 	{
-		foggedColor.rgb = ApplyFogAndVolumetricLights(color.rgb, screenPos.xy / screenPos.w, positionWS, 0);
+		foggedColor.rgb = ApplyFogAndVolumetricLights(color.rgb, normalizedUV, positionWS, 0);
+		foggedColor.rgb = ApplyClouds(foggedColor.rgb, normalizedUV, positionWS);
 	}
 #endif
 	
@@ -62,7 +66,7 @@ void ApplyFog(inout float3 color, float fogFactor, float4 screenPos, float3 posi
 	//Distance or height fog enabled
 	if(_DistanceParams.z == 1 || _DistanceParams.w == 1)
 	{
-		ApplyTransparencyFog(positionWS, screenPos.xy / screenPos.w, foggedColor.rgb);
+		ApplyTransparencyFog(positionWS, normalizedUV, foggedColor.rgb);
 	}
 #endif
 
@@ -73,9 +77,9 @@ void ApplyFog(inout float3 color, float fogFactor, float4 screenPos, float3 posi
 #ifdef Buto
 	#if defined(BUTO_API_VERSION_2) //Buto 2022
 	float3 positionVS = TransformWorldToView(positionWS);
-	foggedColor = ButoFogBlend(screenPos.xy / screenPos.w, -positionVS.z, color.rgb);
+	foggedColor = ButoFogBlend(normalizedUV, -positionVS.z, color.rgb);
 	#else //Buto 2021
-	foggedColor = ButoFogBlend(screenPos.xy / screenPos.w, color.rgb);
+	foggedColor = ButoFogBlend(normalizedUV, color.rgb);
 	#endif
 #endif
 

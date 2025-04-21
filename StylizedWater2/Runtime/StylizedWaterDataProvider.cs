@@ -62,13 +62,16 @@ namespace NWH.DWP2.WaterData
         {
             return false;
         }
+		
+		private void AssignWaterLevel()
+		{
+			m_waterLevel = waterLevelSource == WaterLevelSource.Mesh && waterPlane ? waterPlane.transform.position.y : waterLevel;
+		}
         
         public override void GetWaterHeights(NWH.DWP2.WaterObjects.WaterObject waterObject, ref Vector3[] points, ref float[] waterHeights)
         {
             var n = points.Length;
-
-            m_waterLevel = waterPlane && waterLevelSource == WaterLevelSource.Mesh ? waterPlane.transform.position.y : waterLevel;
-
+            
             // Resize array if data size changed
             if (n != _prevArraySize)
             {
@@ -77,6 +80,8 @@ namespace NWH.DWP2.WaterData
 
                 _prevArraySize = n;
             }
+            
+            AssignWaterLevel();
             
             for (int i = 0; i < points.Length; i++)
             {
@@ -91,6 +96,8 @@ namespace NWH.DWP2.WaterData
         
         public override float GetWaterHeightSingle(NWH.DWP2.WaterObjects.WaterObject waterObject, Vector3 point)
         {
+			AssignWaterLevel();
+			
             return Buoyancy.SampleWaves(point, waterMat, m_waterLevel, 0f, dynamicMaterial, out _);
         }
     }
@@ -125,6 +132,13 @@ namespace NWH.DWP2.WaterData
             if (waterMat.objectReferenceValue == null)
             {
                 EditorGUILayout.HelpBox("A water material must be assigned!", MessageType.Error);
+            }
+            else
+            {
+                if (StylizedWater2.WaveParameters.WavesEnabled(waterMat.objectReferenceValue as Material) == false)
+                {
+                    EditorGUILayout.HelpBox("The \"Waves\" feature is disabled on this material. Enable it to fix misalignments", MessageType.Warning);
+                }
             }
             
             EditorGUILayout.PropertyField(dynamicMaterial);

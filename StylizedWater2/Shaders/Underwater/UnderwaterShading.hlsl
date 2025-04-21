@@ -114,11 +114,12 @@ void MixUnderwaterReflections(inout float3 color, in float3 sceneColor, float sk
 	//Fade out by fog density. Ensuring the reflections fade out as the water surface gets further away
 	reflectionCoefficient *= density;
 
+	//Just use the opaque texture, more reliable
 	#ifndef _ENVIRONMENTREFLECTIONS_OFF
-		float3 incomingReflections = SampleUnderwaterReflectionProbe(reflectionVector, REFLECTION_ROUGHNESS, positionWS, screenPos);
+		//float3 incomingReflections = SampleUnderwaterReflectionProbe(reflectionVector, REFLECTION_ROUGHNESS, positionWS, screenPos);
 
 		//Fallback to opaque texture for pixels in front of opaque geometry
-		sceneColor = lerp(sceneColor, incomingReflections, skyMask);
+		//sceneColor = lerp(sceneColor, incomingReflections, skyMask);
 	#endif
 	
 	//Faux-reflection of underwater volume
@@ -141,10 +142,11 @@ float3 ShadeUnderwaterSurface(in float3 albedo, float3 emission, float3 specular
 	//Fade out into fog
 	shadowMask = lerp(shadowMask, 1.0, density);
 	
-	//Apply lighting to the albedo fog color
-	ApplyUnderwaterLighting(volumeColor, shadowMask, normalWS, viewDir);
-
 	color = lerp(color, volumeColor, density);
+	
+	//Apply direct- and indirect lighting to the albedo water+fog color
+	ApplyUnderwaterLighting(color, shadowMask, normalWS, viewDir);
+
 	//Re-apply translucency
 	color.rgb += emission.rgb * (1-heightDensity);
 	//Specular reflection (unknown why point lights don't carry over)

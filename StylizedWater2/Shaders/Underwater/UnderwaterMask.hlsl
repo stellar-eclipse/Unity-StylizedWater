@@ -97,6 +97,15 @@ float GetWaveAmplitudeXZ(float2 position, float2 wavePosition)
 	return waveAmp + PADDING;
 }
 
+float SampleWaterLevel(float3 positionWS)
+{
+	#if WATER_DISPLACEMENT_PASS
+	return SampleWaterHeight(positionWS);
+	#else
+	return _WaterLevel;
+	#endif
+}
+
 Varyings VertexWaterLine(Attributes input)
 {
 	Varyings output = (Varyings)0;
@@ -130,7 +139,7 @@ Varyings VertexWaterLine(Attributes input)
 	float planeLength = distance(bottom, top);
 
 	//Distance from near-clip bottom to water level (straight up)
-	float depth = _WaterLevel - bottom.y;
+	float depth = SampleWaterLevel(positionWS) - bottom.y;
 
 	//Camera's X-angle
 	float upFactor = dot(CAM_UP, float3(0.0, 1.0, 0.0));
@@ -145,7 +154,7 @@ Varyings VertexWaterLine(Attributes input)
 	//Simply snap to water level
 	float waveAmp = length(samplePos - bottom);
 	
-	#if _WAVES
+	#if _WAVES && !WATER_DISPLACEMENT_PASS
 	WaveInfo waves = GetWaveInfo(samplePos.xz, TIME_VERTEX * _WaveSpeed, 1000, 1001);
 	waves.position.xz = samplePos.xz;
 	//Wave height is relative to 0, convert to absolute world-space height and scale
@@ -158,7 +167,7 @@ Varyings VertexWaterLine(Attributes input)
 	if (top.y + _WaveHeight < _WaterLevel) waveAmp = planeLength;
 	#endif
 
-	#if DYNAMIC_EFFECTS_ENABLED
+	#if DYNAMIC_EFFECTS_ENABLED && !WATER_DISPLACEMENT_PASS
 	float4 effectsData = SampleDynamicEffectsData(samplePos.xyz);
 	
 	waveAmp += effectsData[DE_DISPLACEMENT_CHANNEL] * effectsData[DE_ALPHA_CHANNEL];

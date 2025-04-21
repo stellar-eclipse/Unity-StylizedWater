@@ -29,10 +29,14 @@ namespace StylizedWater2.UnderwaterRendering
             renderer.EnqueuePass(this);
         }
         
+        #if UNITY_6000_0_OR_NEWER
+        #pragma warning disable CS0672
+        #pragma warning disable CS0618
+        #endif
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
             base.Configure(cmd, cameraTextureDescriptor);
-            
+
             #if UNITY_2020_2_OR_NEWER
             ConfigureInput(ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Color);
             #endif
@@ -70,7 +74,7 @@ namespace StylizedWater2.UnderwaterRendering
                 UnderwaterLighting.PassAmbientLighting(this, cmd);
                 UnderwaterLighting.PassMainLight(cmd, renderingData);
 
-                BlitToCamera(cmd, ref renderingData);
+                BlitToCamera(cmd, ref renderingData, false);
             }
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);

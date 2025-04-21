@@ -11,7 +11,7 @@ float4 _WaterShallowColor;
 float4 _WaterDeepColor;
 
 float _StartDistance;
-float _FogDensity;
+float _UnderwaterFogDensity;
 
 float _HeightFogDepth;
 float _HeightFogDensity;
@@ -32,7 +32,7 @@ float ComputeDistanceXYZ(float3 positionWS)
 
 	//Start distance
 	horizontal -= _ProjectionParams.y + _StartDistance;
-	horizontal *= _FogDensity;
+	horizontal *= _UnderwaterFogDensity;
 	
 	return saturate(1-(exp(-horizontal)));
 }

@@ -69,7 +69,17 @@ namespace StylizedWater2.UnderwaterRendering
             settings.waterlineRefraction = false;
             #endif
         }
-
+        
+        void OnEnable()
+        {
+            #if UNITY_6000_0_OR_NEWER && UNITY_EDITOR
+            if (PipelineUtilities.RenderGraphEnabled())
+            {
+                Debug.LogError($"[{this.name}] Render Graph is enabled but is not supported. Enable \"Compatibility Mode\" in your project's Graphics Settings as a workaround.");
+            }
+            #endif
+        }
+        
         public override void Create()
         {
             #if UNITY_EDITOR
@@ -167,6 +177,9 @@ namespace StylizedWater2.UnderwaterRendering
                 keywordStates = UnderwaterRenderer.Instance.materialKeywordStates;
                 cameraSubmerged = UnderwaterRenderer.Instance.CameraSubmerged(renderingData.cameraData.camera);
 
+                //In this case, want to always make sure the underwater mask is sampled
+                //cameraSubmerged &= !Shader.IsKeywordEnabled(DisplacementPrePass.KEYWORD);
+                
                 //Once submerged, the pass stops executing. At which point the water mask buffer will be left entirely filled
                 if (!cameraSubmerged)
                 {

@@ -15,7 +15,7 @@ using Object = UnityEngine.Object;
 
 namespace StylizedWater2
 {
-    [ScriptedImporter(3, FILE_EXTENSION)]
+    [ScriptedImporter(3, new [] { FILE_EXTENSION }, 1)]
     public class WaterMeshImporter : ScriptedImporter
     {
         private const string FILE_EXTENSION = "watermesh";
@@ -133,14 +133,9 @@ namespace StylizedWater2
             {
                 GUILayout.Space(EditorGUIUtility.labelWidth);
                 
-                Rect rect = EditorGUILayout.GetControlRect();
-                EditorGUI.ProgressBar(rect, (float)vertexCount/65535f, $"Vertex count: {vertexCount:N1}/{65535f:N1}");
+                EditorGUILayout.HelpBox($"Vertex count: {vertexCount:N1}", MessageType.None);
             }
-            if(vertexCount > 65535)
-            {
-                EditorGUILayout.HelpBox("Vertex count (" + vertexCount + ") is too high. Decrease the scale, or increase the vertex distance.", MessageType.Error);
-            }
-            
+
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(UVTiling);
